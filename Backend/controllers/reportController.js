@@ -1,5 +1,31 @@
 import CrimeReport from '../models/reportModel.js';
 import User from '../models/userModel.js';
+// Delete a report
+export const deleteReport = async (req, res) => {
+  try {
+    const { reportId } = req.params;
+
+    // Step 1: Validate the reportId
+    if (!mongoose.isValidObjectId(reportId)) {
+      return res.status(400).json({ error: 'Invalid report ID.' });
+    }
+
+    // Step 2: Find the report
+    const report = await CrimeReport.findById(reportId);
+    if (!report) {
+      return res.status(404).json({ error: 'Report not found.' });
+    }
+
+    // Step 3: Delete the report
+    await CrimeReport.findByIdAndDelete(reportId);
+
+    // Step 4: Respond with success
+    res.json({ message: 'Report deleted successfully.' });
+  } catch (error) {
+    console.error('Error deleting report:', error);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+};
 
 // Create a new crime report
 export const reportCrime = async (req, res) => {
@@ -51,10 +77,16 @@ export const updateReportStatus = async (req, res) => {
 };
 
 // Assign an officer to a report
+import mongoose from 'mongoose';
+
 export const assignOfficer = async (req, res) => {
   try {
     const { reportId } = req.params;
     const { officerId } = req.body;
+
+    if (!mongoose.isValidObjectId(officerId)) {
+      return res.status(400).json({ error: 'Invalid officer ID.' });
+    }
 
     const report = await CrimeReport.findById(reportId);
     if (!report) {
@@ -70,41 +102,32 @@ export const assignOfficer = async (req, res) => {
     await report.save();
     res.json({ message: 'Officer assigned successfully.', report });
   } catch (error) {
+    console.error(error); // Log the error for debugging
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
 
-// Delete a report
-export const deleteReport = async (req, res) => {
-  try {
-    const { reportId } = req.params;
-
-    const report = await CrimeReport.findById(reportId);
-    if (!report) {
-      return res.status(404).json({ error: 'Report not found.' });
-    }
-
-    await report.remove();
-    res.json({ message: 'Report deleted successfully.' });
-  } catch (error) {
-    res.status(500).json({ error: 'Internal server error.' });
-  }
-};
 
 // Search for reports
 export const searchReports = async (req, res) => {
   try {
-    const { query } = req.query;
+    const { location } = req.query;
+
+    if (!location) {
+      return res.status(400).json({ error: 'Location parameter is required.' });
+    }
+
     const reports = await CrimeReport.find({
-      $or: [
-        { title: { $regex: query, $options: 'i' } },
-        { description: { $regex: query, $options: 'i' } },
-        { location: { $regex: query, $options: 'i' } },
-      ],
+      location: { $regex: location, $options: 'i' },
     }).populate('assignedOfficer', 'username');
+
+    if (reports.length === 0) {
+      return res.status(404).json({ error: 'No reports found matching the location.' });
+    }
 
     res.json(reports);
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
